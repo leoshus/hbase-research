@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /.arc_jira_lib
 /.externalToolBuilders
 .project
@@ -16,3 +17,17 @@ hbase-*/test
 *.ipr
 patchprocess/
 dependency-reduced-pom.xml
+=======
+*.class
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+>>>>>>> d0fe124476cae1b36dcd0a1cfbbf713281170501
