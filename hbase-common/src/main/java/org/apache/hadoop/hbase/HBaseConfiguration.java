@@ -80,12 +80,13 @@ public class HBaseConfiguration extends Configuration {
     conf.addResource("hbase-default.xml");
     conf.addResource("hbase-site.xml");
 
-    checkDefaultsVersion(conf);
-    HeapMemorySizeUtil.checkForClusterFreeMemoryLimit(conf);
+    checkDefaultsVersion(conf);//检查HBase的版本
+    HeapMemorySizeUtil.checkForClusterFreeMemoryLimit(conf);//检查是否在给Memstore和Block cache分配内存之后 heap memory还有剩余  我们至少要预留20%给其他的regionServer
     return conf;
   }
 
   /**
+   * 根据HBase资源创建一个Configuration对象
    * Creates a Configuration with HBase resources
    * @return a Configuration with HBase resources
    */
@@ -94,6 +95,7 @@ public class HBaseConfiguration extends Configuration {
     // In case HBaseConfiguration is loaded from a different classloader than
     // Configuration, conf needs to be set with appropriate class loader to resolve
     // HBase resources.
+    //防止HBaseConfiguration被不同的classloader加载  conf对象需要将对于加载的classloader作为自己的属性值并通过其解决Hbase资源的问题
     conf.setClassLoader(HBaseConfiguration.class.getClassLoader());
     return addHbaseResources(conf);
   }

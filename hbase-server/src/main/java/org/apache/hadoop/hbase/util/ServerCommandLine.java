@@ -118,6 +118,7 @@ public abstract class ServerCommandLine extends Configured implements Tool {
   }
 
   /**
+   * 根据给出的命令行指令解析并运行 如果ToolRunner.run方法返回非0代码  则退出JVM
    * Parse and run the given command line. This may exit the JVM if
    * a nonzero exit code is returned from <code>run()</code>.
    */

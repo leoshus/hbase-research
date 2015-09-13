@@ -913,7 +913,7 @@ public class RSRpcServices implements HBaseRPCErrorHandler,
     RpcSchedulerFactory rpcSchedulerFactory;
     try {
       Class<?> rpcSchedulerFactoryClass = rs.conf.getClass(
-          REGION_SERVER_RPC_SCHEDULER_FACTORY_CLASS,
+          REGION_SERVER_RPC_SCHEDULER_FACTORY_CLASS,//hbase.region.server.rpc.scheduler.factory.class
           SimpleRpcSchedulerFactory.class);
       rpcSchedulerFactory = ((RpcSchedulerFactory) rpcSchedulerFactoryClass.newInstance());
     } catch (InstantiationException e) {

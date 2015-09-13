@@ -587,6 +587,12 @@ public class RpcServer implements RpcServerInterface {
 
     private ExecutorService readPool;
 
+    /**
+     * 创建n个selector，和一个n个线程的readpool，n由ipc.server.read.threadpool.size决定，默认为10
+     * 读取每个请求的头和内容，将内容放入priorityQueue中
+     * @param name
+     * @throws IOException
+     */
     public Listener(final String name) throws IOException {
       super(name);
       backlogLength = conf.getInt("hbase.ipc.server.listen.queue.size", 128);
@@ -1998,6 +2004,7 @@ public class RpcServer implements RpcServerInterface {
     this.warnResponseSize = conf.getInt(WARN_RESPONSE_SIZE, DEFAULT_WARN_RESPONSE_SIZE);
 
     // Start the listener here and let it bind to the port
+  //创建一个Listener线程 功能是监听client的请求 并将请求放入nio请求队列
     listener = new Listener(name);
     this.port = listener.getAddress().getPort();
 
@@ -2011,8 +2018,16 @@ public class RpcServer implements RpcServerInterface {
 
 
     // Create the responder here
+    /**
+     * 启动一个Responder线程 功能是将响应队列里的数据写给各个client的connection通道，逻辑如下：
+     * 创建nio selector
+     * 默认超时时间为15 mins
+     * 依次将responseQueue中的内容写回各通道，并关闭连接，buffer=8k
+     * 如果该请求的返回没有写完，则放回队列头，推迟再发送
+     * 对于超时未完成的响应，丢弃并关闭相应连接
+     */
     responder = new Responder();
-    this.authorize = conf.getBoolean(HADOOP_SECURITY_AUTHORIZATION, false);
+    this.authorize = conf.getBoolean(HADOOP_SECURITY_AUTHORIZATION, false);//hadoop.security.authorization
     this.userProvider = UserProvider.instantiate(conf);
     this.isSecurityEnabled = userProvider.isHBaseSecurityEnabled();
     if (isSecurityEnabled) {

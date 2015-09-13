@@ -85,7 +85,7 @@ public class HMasterCommandLine extends ServerCommandLine {
 
     CommandLine cmd;
     try {
-      cmd = new GnuParser().parse(opt, args);
+      cmd = new GnuParser().parse(opt, args);//解析配置参数
     } catch (ParseException e) {
       LOG.error("Could not parse: ", e);
       usage(null);
@@ -136,7 +136,7 @@ public class HMasterCommandLine extends ServerCommandLine {
 
     String command = remainingArgs.get(0);
 
-    if ("start".equals(command)) {
+    if ("start".equals(command)) {//启动HMaster
       return startMaster();
     } else if ("stop".equals(command)) {
       return stopMaster();
@@ -153,16 +153,17 @@ public class HMasterCommandLine extends ServerCommandLine {
     try {
       // If 'local', defer to LocalHBaseCluster instance.  Starts master
       // and regionserver both in the one JVM.
-      if (LocalHBaseCluster.isLocal(conf)) {
+    	//判断当前是单机还是集群模式启动 如果是单机则master和regionserver都在一个JVM中
+      if (LocalHBaseCluster.isLocal(conf)) {//单机模式 即本地模式
         DefaultMetricsSystem.setMiniClusterMode(true);
         final MiniZooKeeperCluster zooKeeperCluster = new MiniZooKeeperCluster(conf);
-        File zkDataPath = new File(conf.get(HConstants.ZOOKEEPER_DATA_DIR));
+        File zkDataPath = new File(conf.get(HConstants.ZOOKEEPER_DATA_DIR));//zookeeper 快照文件路径
 
         // find out the default client port
         int zkClientPort = 0;
 
         // If the zookeeper client port is specified in server quorum, use it.
-        String zkserver = conf.get(HConstants.ZOOKEEPER_QUORUM);
+        String zkserver = conf.get(HConstants.ZOOKEEPER_QUORUM);//zookeeper集群配置 包括服务器地址 端口号
         if (zkserver != null) {
           String[] zkservers = zkserver.split(",");
 
@@ -184,7 +185,7 @@ public class HMasterCommandLine extends ServerCommandLine {
           }
         }
         // If the client port could not be find in server quorum conf, try another conf
-        if (zkClientPort == 0) {
+        if (zkClientPort == 0) {//zookeeper 服务端口检查
           zkClientPort = conf.getInt(HConstants.ZOOKEEPER_CLIENT_PORT, 0);
           // The client port has to be set by now; if not, throw exception.
           if (zkClientPort == 0) {
@@ -193,7 +194,7 @@ public class HMasterCommandLine extends ServerCommandLine {
         }
         zooKeeperCluster.setDefaultClientPort(zkClientPort);
         // set the ZK tick time if specified
-        int zkTickTime = conf.getInt(HConstants.ZOOKEEPER_TICK_TIME, 0);
+        int zkTickTime = conf.getInt(HConstants.ZOOKEEPER_TICK_TIME, 0);//zookeeper 心跳时间
         if (zkTickTime > 0) {
           zooKeeperCluster.setTickTime(zkTickTime);
         }
@@ -202,10 +203,10 @@ public class HMasterCommandLine extends ServerCommandLine {
         ZKUtil.loginServer(conf, "hbase.zookeeper.server.keytab.file",
           "hbase.zookeeper.server.kerberos.principal", null);
         int localZKClusterSessionTimeout =
-          conf.getInt(HConstants.ZK_SESSION_TIMEOUT + ".localHBaseCluster", 10*1000);
+          conf.getInt(HConstants.ZK_SESSION_TIMEOUT + ".localHBaseCluster", 10*1000);//获取zookeeper会话过期时间  默认是10秒
         conf.setInt(HConstants.ZK_SESSION_TIMEOUT, localZKClusterSessionTimeout);
         LOG.info("Starting a zookeeper cluster");
-        int clientPort = zooKeeperCluster.startup(zkDataPath);
+        int clientPort = zooKeeperCluster.startup(zkDataPath);//启动zookeeper
         if (clientPort != zkClientPort) {
           String errorMsg = "Could not start ZK at requested port of " +
             zkClientPort + ".  ZK was started at port: " + clientPort +
@@ -218,19 +219,20 @@ public class HMasterCommandLine extends ServerCommandLine {
 
         // Need to have the zk cluster shutdown when master is shutdown.
         // Run a subclass that does the zk cluster shutdown on its way out.
-        int mastersCount = conf.getInt("hbase.masters", 1);
-        int regionServersCount = conf.getInt("hbase.regionservers", 1);
+        int mastersCount = conf.getInt("hbase.masters", 1);//HMaster数量
+        int regionServersCount = conf.getInt("hbase.regionservers", 1);//HRegionserver 数量
         LOG.info("Starting up instance of localHBaseCluster; master=" + mastersCount +
           ", regionserversCount=" + regionServersCount);
         LocalHBaseCluster cluster = new LocalHBaseCluster(conf, mastersCount, regionServersCount,
           LocalHMaster.class, HRegionServer.class);
         ((LocalHMaster)cluster.getMaster(0)).setZKCluster(zooKeeperCluster);
-        cluster.startup();
+        cluster.startup();//启动HMaster
         waitOnMasterThreads(cluster);
-      } else {
+      } else {//集群模式
         logProcessInfo(getConf());
         CoordinatedStateManager csm =
           CoordinatedStateManagerFactory.getCoordinatedStateManager(conf);
+        //构造HMaster  masterClass即HMaster.class
         HMaster master = HMaster.constructMaster(masterClass, conf, csm);
         if (master.isStopped()) {
           LOG.info("Won't bring the Master up as a shutdown is requested");

@@ -502,32 +502,37 @@ public class HRegionServer extends HasThread implements
       throws IOException {
     this.fsOk = true;
     this.conf = conf;
-    HFile.checkHFileVersion(this.conf);
-    checkCodecs(this.conf);
+    HFile.checkHFileVersion(this.conf);//检查HFile的版本
+    checkCodecs(this.conf);//检查压缩方式
     this.userProvider = UserProvider.instantiate(conf);
     Superusers.initialize(conf);
     FSUtils.setupShortCircuitRead(this.conf);
     // Disable usage of meta replicas in the regionserver
+    //禁止在regionserver中使用meta replicas
     this.conf.setBoolean(HConstants.USE_META_REPLICAS, false);
 
     // Config'ed params
+    //设置服务端重试次数 默认是31次  hbase.client.retries.number
     this.numRetries = this.conf.getInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER,
         HConstants.DEFAULT_HBASE_CLIENT_RETRIES_NUMBER);
+    //hbase.server.thread.wakefrequency 线程wake up 频率 默认为10秒
     this.threadWakeFrequency = conf.getInt(HConstants.THREAD_WAKE_FREQUENCY, 10 * 1000);
     this.msgInterval = conf.getInt("hbase.regionserver.msginterval", 3 * 1000);
 
     this.sleeper = new Sleeper(this.msgInterval, this);
-
+    //hbase.regionserver.nonces.enabled 默认为true
     boolean isNoncesEnabled = conf.getBoolean(HConstants.HBASE_RS_NONCES_ENABLED, true);
     this.nonceManager = isNoncesEnabled ? new ServerNonceManager(this.conf) : null;
 
     this.numRegionsToReport = conf.getInt(
       "hbase.regionserver.numregionstoreport", 10);
 
+    //hbase.client.operation.timeout
     this.operationTimeout = conf.getInt(
       HConstants.HBASE_CLIENT_OPERATION_TIMEOUT,
       HConstants.DEFAULT_HBASE_CLIENT_OPERATION_TIMEOUT);
 
+    //hbase.rpc.shortoperation.timeout
     this.shortOperationTimeout = conf.getInt(
       HConstants.HBASE_RPC_SHORTOPERATION_TIMEOUT_KEY,
       HConstants.DEFAULT_HBASE_RPC_SHORTOPERATION_TIMEOUT);
@@ -535,12 +540,13 @@ public class HRegionServer extends HasThread implements
     this.abortRequested = false;
     this.stopped = false;
 
+    //创建RPC server
     rpcServices = createRpcServices();
     this.startcode = System.currentTimeMillis();
     if (this instanceof HMaster) {
-      useThisHostnameInstead = conf.get(MASTER_HOSTNAME_KEY);
+      useThisHostnameInstead = conf.get(MASTER_HOSTNAME_KEY);//hbase.master.hostname
     } else {
-      useThisHostnameInstead = conf.get(RS_HOSTNAME_KEY);
+      useThisHostnameInstead = conf.get(RS_HOSTNAME_KEY);//hbase.regionserver.hostname
     }
     String hostName = shouldUseThisHostnameInstead() ? useThisHostnameInstead :
       rpcServices.isa.getHostName();
@@ -550,6 +556,7 @@ public class HRegionServer extends HasThread implements
     rpcRetryingCallerFactory = RpcRetryingCallerFactory.instantiate(this.conf);
 
     // login the zookeeper client principal (if using security)
+    //zookeeper授权登录
     ZKUtil.loginClient(this.conf, "hbase.zookeeper.client.keytab.file",
       "hbase.zookeeper.client.kerberos.principal", hostName);
     // login the server principal (if using secure Hadoop)
@@ -571,7 +578,7 @@ public class HRegionServer extends HasThread implements
     FSUtils.setFsDefault(this.conf, FSUtils.getRootDir(this.conf));
     // Get fs instance used by this RS.  Do we use checksum verification in the hbase? If hbase
     // checksum verification enabled, then automatically switch off hdfs checksum verification.
-    boolean useHBaseChecksum = conf.getBoolean(HConstants.HBASE_CHECKSUM_VERIFICATION, true);
+    boolean useHBaseChecksum = conf.getBoolean(HConstants.HBASE_CHECKSUM_VERIFICATION, true);//hbase.regionserver.checksum.verify
     this.fs = new HFileSystem(this.conf, useHBaseChecksum);
     this.rootDir = FSUtils.getRootDir(this.conf);
     this.tableDescriptors = getFsTableDescriptors();
@@ -582,6 +589,7 @@ public class HRegionServer extends HasThread implements
     // Some unit tests don't need a cluster, so no zookeeper at all
     if (!conf.getBoolean("hbase.testing.nocluster", false)) {
       // Open connection to zookeeper and set primary watcher
+    	//创建Zookeeper Watcher监听器 并在zookeeper上创建一些节点
       zooKeeper = new ZooKeeperWatcher(conf, getProcessName() + ":" +
         rpcServices.isa.getPort(), this, canCreateBaseZNode());
 
@@ -600,7 +608,7 @@ public class HRegionServer extends HasThread implements
     }
     this.configurationManager = new ConfigurationManager();
 
-    rpcServices.start();
+    rpcServices.start();//启动RPCserver中的线程
     putUpWebUI();
     this.walRoller = new LogRoller(this, this);
     this.choreService = new ChoreService(getServerName().toString());

@@ -2312,10 +2312,11 @@ public class HMaster extends HRegionServer implements MasterServices, Server {
   }
 
   /**
+   * HMaster 启动入库
    * @see org.apache.hadoop.hbase.master.HMasterCommandLine
    */
   public static void main(String [] args) {
-    VersionInfo.logVersion();
+    VersionInfo.logVersion();//打印HBase版本信息
     new HMasterCommandLine(HMaster.class).doMain(args);
   }
 
