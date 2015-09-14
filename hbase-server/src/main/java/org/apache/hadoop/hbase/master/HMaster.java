@@ -369,7 +369,7 @@ public class HMaster extends HRegionServer implements MasterServices, Server {
       ", hbase.cluster.distributed=" + this.conf.getBoolean(HConstants.CLUSTER_DISTRIBUTED, false));
 
     // Disable usage of meta replicas in the master
-    this.conf.setBoolean(HConstants.USE_META_REPLICAS, false);
+    this.conf.setBoolean(HConstants.USE_META_REPLICAS, false);//hbase.meta.replicas.use
 
     Replication.decorateMasterConfiguration(this.conf);
 
@@ -384,7 +384,7 @@ public class HMaster extends HRegionServer implements MasterServices, Server {
 
     // should we check encryption settings at master side, default true
     this.masterCheckEncryption = conf.getBoolean("hbase.master.check.encryption", true);
-
+    //创建MetricsMaster
     this.metricsMaster = new MetricsMaster( new MetricsMasterWrapperImpl(this));
 
     // preload table descriptor at startup

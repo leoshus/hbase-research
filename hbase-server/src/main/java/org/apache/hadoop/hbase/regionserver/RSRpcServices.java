@@ -913,7 +913,7 @@ public class RSRpcServices implements HBaseRPCErrorHandler,
     RpcSchedulerFactory rpcSchedulerFactory;
     try {
       Class<?> rpcSchedulerFactoryClass = rs.conf.getClass(
-          REGION_SERVER_RPC_SCHEDULER_FACTORY_CLASS,//hbase.region.server.rpc.scheduler.factory.class
+          REGION_SERVER_RPC_SCHEDULER_FACTORY_CLASS,//hbase.region.server.rpc.scheduler.factory.class 默认为SimpleRpcSchedulerFactory
           SimpleRpcSchedulerFactory.class);
       rpcSchedulerFactory = ((RpcSchedulerFactory) rpcSchedulerFactoryClass.newInstance());
     } catch (InstantiationException e) {
@@ -924,15 +924,15 @@ public class RSRpcServices implements HBaseRPCErrorHandler,
     // Server to handle client requests.
     InetSocketAddress initialIsa;
     InetSocketAddress bindAddress;
-    if(this instanceof MasterRpcServices) {
+    if(this instanceof MasterRpcServices) {//HMaster
       String hostname = getHostname(rs.conf, true);
-      int port = rs.conf.getInt(HConstants.MASTER_PORT, HConstants.DEFAULT_MASTER_PORT);
+      int port = rs.conf.getInt(HConstants.MASTER_PORT, HConstants.DEFAULT_MASTER_PORT);//hbase.master.port master默认监听端口为16000
       // Creation of a HSA will force a resolve.
       initialIsa = new InetSocketAddress(hostname, port);
       bindAddress = new InetSocketAddress(rs.conf.get("hbase.master.ipc.address", hostname), port);
-    } else {
+    } else {//RegionServer
       String hostname = getHostname(rs.conf, false);
-      int port = rs.conf.getInt(HConstants.REGIONSERVER_PORT,
+      int port = rs.conf.getInt(HConstants.REGIONSERVER_PORT,//hbase.regionserver.port region server默认监听端口16020
         HConstants.DEFAULT_REGIONSERVER_PORT);
       // Creation of a HSA will force a resolve.
       initialIsa = new InetSocketAddress(hostname, port);
@@ -952,16 +952,16 @@ public class RSRpcServices implements HBaseRPCErrorHandler,
       rpcSchedulerFactory.create(rs.conf, this, rs));
 
     scannerLeaseTimeoutPeriod = rs.conf.getInt(
-      HConstants.HBASE_CLIENT_SCANNER_TIMEOUT_PERIOD,
+      HConstants.HBASE_CLIENT_SCANNER_TIMEOUT_PERIOD,//hbase.client.scanner.timeout.period 默认值为60000
       HConstants.DEFAULT_HBASE_CLIENT_SCANNER_TIMEOUT_PERIOD);
     maxScannerResultSize = rs.conf.getLong(
-      HConstants.HBASE_SERVER_SCANNER_MAX_RESULT_SIZE_KEY,
+      HConstants.HBASE_SERVER_SCANNER_MAX_RESULT_SIZE_KEY,//hbase.server.scanner.max.result.size 默认值为100M 
       HConstants.DEFAULT_HBASE_SERVER_SCANNER_MAX_RESULT_SIZE);
     rpcTimeout = rs.conf.getInt(
-      HConstants.HBASE_RPC_TIMEOUT_KEY,
+      HConstants.HBASE_RPC_TIMEOUT_KEY,//hbase.rpc.timeout RPC超时时间 默认值为60000 
       HConstants.DEFAULT_HBASE_RPC_TIMEOUT);
     minimumScanTimeLimitDelta = rs.conf.getLong(
-      REGION_SERVER_RPC_MINIMUM_SCAN_TIME_LIMIT_DELTA,
+      REGION_SERVER_RPC_MINIMUM_SCAN_TIME_LIMIT_DELTA,//hbase.region.server.rpc.minimum.scan.time.limit.delta 默认值为10
       DEFAULT_REGION_SERVER_RPC_MINIMUM_SCAN_TIME_LIMIT_DELTA);
 
     // Set our address, however we need the final port that was given to rpcServer
@@ -970,10 +970,19 @@ public class RSRpcServices implements HBaseRPCErrorHandler,
     rs.setName(name);
   }
 
+  /**
+   * 根据当前服务器角色   获取主机名称
+   * @date 2015年9月14日 下午1:58:24
+   * 
+   * @param conf
+   * @param isMaster
+   * @return
+   * @throws UnknownHostException
+   */
   public static String getHostname(Configuration conf, boolean isMaster)
       throws UnknownHostException {
-    String hostname = conf.get(isMaster? HRegionServer.MASTER_HOSTNAME_KEY :
-      HRegionServer.RS_HOSTNAME_KEY);
+    String hostname = conf.get(isMaster? HRegionServer.MASTER_HOSTNAME_KEY ://hbase.master.hostname
+      HRegionServer.RS_HOSTNAME_KEY);//hbase.regionserver.hostname
     if (hostname == null || hostname.isEmpty()) {
       String masterOrRS = isMaster ? "master" : "regionserver";
       return Strings.domainNamePointerToHostName(DNS.getDefaultHost(

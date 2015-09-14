@@ -527,12 +527,12 @@ public class HRegionServer extends HasThread implements
     this.numRegionsToReport = conf.getInt(
       "hbase.regionserver.numregionstoreport", 10);
 
-    //hbase.client.operation.timeout
+    //hbase.client.operation.timeout 客户端操作超时时间 默认为1200000
     this.operationTimeout = conf.getInt(
       HConstants.HBASE_CLIENT_OPERATION_TIMEOUT,
       HConstants.DEFAULT_HBASE_CLIENT_OPERATION_TIMEOUT);
 
-    //hbase.rpc.shortoperation.timeout
+    //hbase.rpc.shortoperation.timeout RPC短操作超时时间
     this.shortOperationTimeout = conf.getInt(
       HConstants.HBASE_RPC_SHORTOPERATION_TIMEOUT_KEY,
       HConstants.DEFAULT_HBASE_RPC_SHORTOPERATION_TIMEOUT);
