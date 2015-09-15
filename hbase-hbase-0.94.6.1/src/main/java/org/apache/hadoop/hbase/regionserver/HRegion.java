@@ -4703,7 +4703,7 @@ public class HRegion implements HeapSize { // , Writable{
          return results;
        }
     }
-
+    //转成Scan startRow和stopRow一样
     Scan scan = new Scan(get);
 
     RegionScanner scanner = null;
