@@ -115,13 +115,13 @@ public class ZKUtil {
     if(ensemble == null) {
       throw new IOException("Unable to determine ZooKeeper ensemble");
     }
-    int timeout = conf.getInt(HConstants.ZK_SESSION_TIMEOUT,
+    int timeout = conf.getInt(HConstants.ZK_SESSION_TIMEOUT, //zookeeper.session.timeout Zookeeper会话默认过期时间 180*1000
         HConstants.DEFAULT_ZK_SESSION_TIMEOUT);
     LOG.debug(descriptor + " opening connection to ZooKeeper with ensemble (" +
         ensemble + ")");
-    int retry = conf.getInt("zookeeper.recovery.retry", 3);
+    int retry = conf.getInt("zookeeper.recovery.retry", 3);//重试次数
     int retryIntervalMillis =
-      conf.getInt("zookeeper.recovery.retry.intervalmill", 1000);
+      conf.getInt("zookeeper.recovery.retry.intervalmill", 1000);//重试时间间隔
     zkDumpConnectionTimeOut = conf.getInt("zookeeper.dump.connection.timeout",
         1000);
     return new RecoverableZooKeeper(ensemble, timeout, watcher,

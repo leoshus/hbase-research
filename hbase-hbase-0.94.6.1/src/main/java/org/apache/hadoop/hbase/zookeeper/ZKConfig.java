@@ -58,10 +58,10 @@ public class ZKConfig {
     // it and grab its configuration properties.
     ClassLoader cl = HQuorumPeer.class.getClassLoader();
     final InputStream inputStream =
-      cl.getResourceAsStream(HConstants.ZOOKEEPER_CONFIG_NAME);
+      cl.getResourceAsStream(HConstants.ZOOKEEPER_CONFIG_NAME);//读取zookeeper配置文件zoo.cfg
     if (inputStream != null) {
       try {
-        return parseZooCfg(conf, inputStream);
+        return parseZooCfg(conf, inputStream);//解析zoo.cfg
       } catch (IOException e) {
         LOG.warn("Cannot read " + HConstants.ZOOKEEPER_CONFIG_NAME +
                  ", loading from XML files", e);
@@ -132,7 +132,7 @@ public class ZKConfig {
       StringBuilder newValue = new StringBuilder();
       int varStart = value.indexOf(VARIABLE_START);
       int varEnd = 0;
-      while (varStart != -1) {
+      while (varStart != -1) {//读取${}变量名 对应的值
         varEnd = value.indexOf(VARIABLE_END, varStart);
         if (varEnd == -1) {
           String msg = "variable at " + varStart + " has no end marker";
@@ -141,9 +141,9 @@ public class ZKConfig {
         }
         String variable = value.substring(varStart + VARIABLE_START_LENGTH, varEnd);
 
-        String substituteValue = System.getProperty(variable);
+        String substituteValue = System.getProperty(variable);//系统属性
         if (substituteValue == null) {
-          substituteValue = conf.get(variable);
+          substituteValue = conf.get(variable);//hbase配置属性
         }
         if (substituteValue == null) {
           String msg = "variable " + variable + " not set in system property "
@@ -237,6 +237,7 @@ public class ZKConfig {
   }
 
   /**
+   * 返回Zookeeper Quorum的服务器列表
    * Return the ZK Quorum servers string given the specified configuration.
    * @param conf
    * @return Quorum servers

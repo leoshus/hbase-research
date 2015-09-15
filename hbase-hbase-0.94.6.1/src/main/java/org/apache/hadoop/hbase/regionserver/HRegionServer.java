@@ -3599,9 +3599,9 @@ public class HRegionServer implements HRegionInterface, HBaseRPCErrorHandler,
         int originalIndex = a.getOriginalIndex();
 
         try {
-          if (action instanceof Delete || action instanceof Put) {
+          if (action instanceof Delete || action instanceof Put) {//删除或添加操作
             mutations.add(a); 
-          } else if (action instanceof Get) {
+          } else if (action instanceof Get) {//读取操作
             response.add(regionName, originalIndex,
                 get(regionName, (Get)action));
           } else if (action instanceof Exec) {

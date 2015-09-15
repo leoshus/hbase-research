@@ -101,13 +101,17 @@ import org.apache.hadoop.hbase.util.Threads;
  */
 public class HTable implements HTableInterface {
   private static final Log LOG = LogFactory.getLog(HTable.class);
+  
   private HConnection connection;
   private final byte [] tableName;
   private volatile Configuration configuration;
-  private final ArrayList<Put> writeBuffer = new ArrayList<Put>();
+  private final ArrayList<Put> writeBuffer = new ArrayList<Put>();//需要提交的数据列表
+  //flush的size   hbase.client.write.buffer 默认值为2M
   private long writeBufferSize;
   private boolean clearBufferOnFail;
+  //是否自动flush
   private boolean autoFlush;
+  //当前的数据的size  达到指定的size就要提交
   private long currentWriteBufferSize;
   protected int scannerCaching;
   private int maxKeyValueSize;
@@ -766,11 +770,11 @@ public class HTable implements HTableInterface {
      
       // we need to periodically see if the writebuffer is full instead of waiting until the end of the List
       n++;
-      if (n % DOPUT_WB_CHECK == 0 && currentWriteBufferSize > writeBufferSize) {
+      if (n % DOPUT_WB_CHECK == 0 && currentWriteBufferSize > writeBufferSize) {//批处理put在DOPUT_WB_CHECK的整数倍 并且当前缓冲的数据量大于 flush的预定值writeBufferSize 执行flushCommits操作
         flushCommits();
       }
     }
-    if (autoFlush || currentWriteBufferSize > writeBufferSize) {
+    if (autoFlush || currentWriteBufferSize > writeBufferSize) {//自动flush开启 或 当前缓冲的数据量大于 flush的预定值writeBufferSize 执行flushCommits操作
       flushCommits();
     }
   }

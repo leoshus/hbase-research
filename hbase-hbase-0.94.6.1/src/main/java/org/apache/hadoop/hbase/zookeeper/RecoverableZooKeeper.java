@@ -95,9 +95,9 @@ public class RecoverableZooKeeper {
   public RecoverableZooKeeper(String quorumServers, int sessionTimeout,
       Watcher watcher, int maxRetries, int retryIntervalMillis) 
   throws IOException {
-    this.zk = new ZooKeeper(quorumServers, sessionTimeout, watcher);
+    this.zk = new ZooKeeper(quorumServers, sessionTimeout, watcher);//初始化zookeeper对象
     this.retryCounterFactory =
-      new RetryCounterFactory(maxRetries, retryIntervalMillis);
+      new RetryCounterFactory(maxRetries, retryIntervalMillis);//初始化zookeeper重试机制
 
     // the identifier = processID@hostName
     this.identifier = ManagementFactory.getRuntimeMXBean().getName();

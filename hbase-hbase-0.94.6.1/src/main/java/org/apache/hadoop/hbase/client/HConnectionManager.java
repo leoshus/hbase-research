@@ -577,7 +577,7 @@ public class HConnectionManager {
       this.conf = conf;
       this.managed = managed;
       String serverClassName = conf.get(HConstants.REGION_SERVER_CLASS,
-        HConstants.DEFAULT_REGION_SERVER_CLASS);
+        HConstants.DEFAULT_REGION_SERVER_CLASS);//hbase.regionserver.class 默认值为HRegionInterface.class
       this.closed = false;
       try {
         this.serverInterfaceClass =
@@ -586,18 +586,18 @@ public class HConnectionManager {
         throw new UnsupportedOperationException(
             "Unable to find region server interface " + serverClassName, e);
       }
-      this.pause = conf.getLong(HConstants.HBASE_CLIENT_PAUSE,
+      this.pause = conf.getLong(HConstants.HBASE_CLIENT_PAUSE,//hbase.client.pause 默认值为1000 
           HConstants.DEFAULT_HBASE_CLIENT_PAUSE);
-      this.numRetries = conf.getInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER,
+      this.numRetries = conf.getInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER,//hbase.client.retries.number 默认值为10
           HConstants.DEFAULT_HBASE_CLIENT_RETRIES_NUMBER);
       this.maxRPCAttempts = conf.getInt(
-          HConstants.HBASE_CLIENT_RPC_MAXATTEMPTS,
+          HConstants.HBASE_CLIENT_RPC_MAXATTEMPTS,//hbase.client.rpc.maxattempts 默认值为1
           HConstants.DEFAULT_HBASE_CLIENT_RPC_MAXATTEMPTS);
       this.rpcTimeout = conf.getInt(
-          HConstants.HBASE_RPC_TIMEOUT_KEY,
+          HConstants.HBASE_RPC_TIMEOUT_KEY,//hbase.rpc.timeout 默认值为60000
           HConstants.DEFAULT_HBASE_RPC_TIMEOUT);
       this.prefetchRegionLimit = conf.getInt(
-          HConstants.HBASE_CLIENT_PREFETCH_LIMIT,
+          HConstants.HBASE_CLIENT_PREFETCH_LIMIT,//hbase.client.prefetch.limit 预获取包含指定table和row的HRegionLocation的数量 默认值为10
           HConstants.DEFAULT_HBASE_CLIENT_PREFETCH_LIMIT);
 
       this.master = null;
@@ -617,15 +617,18 @@ public class HConnectionManager {
         }
       }
       if (masterAddressTracker == null) {
+    	//MasterAddressTracker管理当前master的location  监听/hbase/master上的NodeCreated、NodeDeleted事件
         masterAddressTracker = new MasterAddressTracker(zooKeeper, this);
         masterAddressTracker.start();
       }
       if (rootRegionTracker == null) {
+    	//追踪根region server在Zookeeper中的位置  '/hbase/root-region-server'
         rootRegionTracker = new RootRegionTracker(zooKeeper, this);
         rootRegionTracker.start();
       }
       // RpcEngine needs access to zookeeper data, like cluster ID
       if (rpcEngine == null) {
+    	//默认为WritableRpcEngine RpcEngine需要访问Zookeeper的数据  例如集群ID
         this.rpcEngine = HBaseRPC.getProtocolEngine(conf);
       }
     }
@@ -860,6 +863,17 @@ public class HConnectionManager {
       return locateRegion(tableName, row, false, true);
     }
 
+    /**
+     * 定位table row所在的Region
+     * @date 2015年9月15日 下午2:47:51
+     * 
+     * @param tableName
+     * @param row
+     * @param useCache 是否使用缓存
+     * @param retry 是否使用重试机制
+     * @return
+     * @throws IOException
+     */
     private HRegionLocation locateRegion(final byte [] tableName,
       final byte [] row, boolean useCache, boolean retry)
     throws IOException {
@@ -868,20 +882,23 @@ public class HConnectionManager {
         throw new IllegalArgumentException(
             "table name cannot be null or zero length");
       }
+      //保证Zookeeper启动  /hbase/master、/hbase/root-region-server的追踪 以及 RpcEngine的初始化默认为WritableRpcEngine 
       ensureZookeeperTrackers();
-      if (Bytes.equals(tableName, HConstants.ROOT_TABLE_NAME)) {
+      if (Bytes.equals(tableName, HConstants.ROOT_TABLE_NAME)) {//如当前tableName为-ROOT-
         try {
+          //从zookeeper中读取/hbase/root-region-server中保存的-ROOT-表所在的位置
           ServerName servername = this.rootRegionTracker.waitRootRegionLocation(this.rpcTimeout);
           LOG.debug("Looked up root region location, connection=" + this +
             "; serverName=" + ((servername == null)? "": servername.toString()));
           if (servername == null) return null;
+          //返回一个拼装的HRegionLocation 因为-ROOT-表只有一个location 而且不会被split
           return new HRegionLocation(HRegionInfo.ROOT_REGIONINFO,
             servername.getHostname(), servername.getPort());
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           return null;
         }
-      } else if (Bytes.equals(tableName, HConstants.META_TABLE_NAME)) {
+      } else if (Bytes.equals(tableName, HConstants.META_TABLE_NAME)) {//若当前tableName为.META.表
         return locateRegionInMeta(HConstants.ROOT_TABLE_NAME, tableName, row,
             useCache, metaRegionLock, retry);
       } else {
@@ -892,6 +909,7 @@ public class HConnectionManager {
     }
 
     /*
+     * 在.META.表中查找包括table和row的HRegionLocation的信息  预获取指定数量的regins info放到全局的region缓存中
      * Search .META. for the HRegionLocation info that contains the table and
      * row we're seeking. It will prefetch certain number of regions info and
      * save them to the global region cache.
@@ -934,6 +952,7 @@ public class HConnectionManager {
               HRegionLocation loc =
                 new HRegionLocation(regionInfo, hostname, port);
               // cache this meta entry
+              //缓存meta entry
               cacheLocation(tableName, loc);
             }
             return true;
@@ -962,6 +981,7 @@ public class HConnectionManager {
       HRegionLocation location;
       // If we are supposed to be using the cache, look in the cache to see if
       // we already have the region.
+      //首先尝试从缓存中取
       if (useCache) {
         location = getCachedLocation(tableName, row);
         if (location != null) {
@@ -969,14 +989,15 @@ public class HConnectionManager {
         }
       }
 
-      int localNumRetries = retry ? numRetries : 1;
+      int localNumRetries = retry ? numRetries : 1;//默认重试10次
       // build the key of the meta region we should be looking for.
       // the extra 9's on the end are necessary to allow "exact" matches
       // without knowing the precise region names.
+      //构建metakey eg：test,key1,99999999999999
       byte [] metaKey = HRegionInfo.createRegionName(tableName, row,
         HConstants.NINES, false);
       for (int tries = 0; true; tries++) {
-        if (tries >= localNumRetries) {
+        if (tries >= localNumRetries) {//找不到了
           throw new NoServerForRegionException("Unable to find region for "
             + Bytes.toStringBinary(row) + " after " + numRetries + " tries.");
         }
@@ -984,9 +1005,11 @@ public class HConnectionManager {
         HRegionLocation metaLocation = null;
         try {
           // locate the root or meta region
+          //递归查找parentTable
           metaLocation = locateRegion(parentTable, metaKey, true, false);
-          // If null still, go around again.
+          // If null still, go around again. 如仍然查不到  则继续查找
           if (metaLocation == null) continue;
+          //找到对应的Region server地址之后  发起RPC请求  这里先生成一个RPC proxy对象
           HRegionInterface server =
             getHRegionConnection(metaLocation.getHostname(), metaLocation.getPort());
 
@@ -997,6 +1020,7 @@ public class HConnectionManager {
           synchronized (regionLockObject) {
             // If the parent table is META, we may want to pre-fetch some
             // region info into the global region cache for this table.
+        	//若parentTable是.META.表 则预先获取.META.的一些数据   默认是10条
             if (Bytes.equals(parentTable, HConstants.META_TABLE_NAME) &&
                 (getRegionCachePrefetch(tableName)) )  {
               prefetchRegionCache(tableName, row);
@@ -1011,7 +1035,7 @@ public class HConnectionManager {
               if (location != null) {
                 return location;
               }
-            } else {
+            } else {//若不使用缓存则清除之  比如row对应的region发生了分裂 用老的location启动rpc时会抛出
               deleteCachedLocation(tableName, row);
             }
 
@@ -1119,8 +1143,9 @@ public class HConnectionManager {
      */
     HRegionLocation getCachedLocation(final byte [] tableName,
         final byte [] row) {
+      //通过软引用来封装TreeMap 当内存不足时则删除这部分缓存
       SoftValueSortedMap<byte [], HRegionLocation> tableLocations =
-        getTableLocations(tableName);
+        getTableLocations(tableName);//将表名处理后hash 从map中取缓存
 
       // start to examine the cache. we can only do cache actions
       // if there's something in the cache for this table.
@@ -1519,6 +1544,7 @@ public class HConnectionManager {
       for (int tries = 0; tries < numRetries && retry; ++tries) {
 
         // sleep first, if this is a retry
+    	  //如果当前是重试操作则先休眠一段时间
         if (tries >= 1) {
           long sleepTime = ConnectionUtils.getPauseTime(this.pause, tries);
           LOG.debug("Retry " +tries+ ", sleep for " +sleepTime+ "ms!");
@@ -1530,6 +1556,7 @@ public class HConnectionManager {
         for (int i = 0; i < workingList.size(); i++) {
           Row row = workingList.get(i);
           if (row != null) {
+        	  //根据tableName和row定位region的位置
             HRegionLocation loc = locateRegion(tableName, row.getRow());
             byte[] regionName = loc.getRegionInfo().getRegionName();
 

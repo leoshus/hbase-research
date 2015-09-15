@@ -144,12 +144,14 @@ public class ZooKeeperWatcher implements Watcher, Abortable {
     } catch (Exception e) {
       this.constructorCaller = e;
     }
-    this.quorum = ZKConfig.getZKQuorumServersString(conf);
+    this.quorum = ZKConfig.getZKQuorumServersString(conf);//获取zk的quorum服务列表
     // Identifier will get the sessionid appended later below down when we
     // handle the syncconnect event.
     this.identifier = descriptor;
     this.abortable = abortable;
+    //初始化hbase中默认的注册到Zookeeper中的节点名称
     setNodeNames(conf);
+    //创建初始化Zookeeper连接
     this.recoverableZooKeeper = ZKUtil.connect(conf, quorum, this, descriptor);
     if (canCreateBaseZNode) {
       createBaseZNodes();
@@ -196,32 +198,32 @@ public class ZooKeeperWatcher implements Watcher, Abortable {
    * Set the local variable node names using the specified configuration.
    */
   private void setNodeNames(Configuration conf) {
-    baseZNode = conf.get(HConstants.ZOOKEEPER_ZNODE_PARENT,
+    baseZNode = conf.get(HConstants.ZOOKEEPER_ZNODE_PARENT,//当前集群在zk中的根目录(zookeeper.znode.parent) 默认为/hbase
         HConstants.DEFAULT_ZOOKEEPER_ZNODE_PARENT);
-    rootServerZNode = ZKUtil.joinZNode(baseZNode,
+    rootServerZNode = ZKUtil.joinZNode(baseZNode,//'/hbase/root-region-server' 保存server中持有的root region的位置  即-ROOT-表所在的region server位置
         conf.get("zookeeper.znode.rootserver", "root-region-server"));
-    rsZNode = ZKUtil.joinZNode(baseZNode,
+    rsZNode = ZKUtil.joinZNode(baseZNode, 		//'/hbase/rs'  regionserver的临时节点  
         conf.get("zookeeper.znode.rs", "rs"));
-    drainingZNode = ZKUtil.joinZNode(baseZNode,
+    drainingZNode = ZKUtil.joinZNode(baseZNode, //'/hbase/draining' draining regionserver 的临时节点
         conf.get("zookeeper.znode.draining.rs", "draining"));
-    masterAddressZNode = ZKUtil.joinZNode(baseZNode,
+    masterAddressZNode = ZKUtil.joinZNode(baseZNode,	//'/hbase/master' 当前处于激活状态的master 
         conf.get("zookeeper.znode.master", "master"));
-    backupMasterAddressesZNode = ZKUtil.joinZNode(baseZNode,
+    backupMasterAddressesZNode = ZKUtil.joinZNode(baseZNode, //'/hbase/backup-masters' 备份的master
         conf.get("zookeeper.znode.backup.masters", "backup-masters"));
-    clusterStateZNode = ZKUtil.joinZNode(baseZNode,
+    clusterStateZNode = ZKUtil.joinZNode(baseZNode,			//'/hbase/shutdown' 当前集群的状态 
         conf.get("zookeeper.znode.state", "shutdown"));
-    assignmentZNode = ZKUtil.joinZNode(baseZNode,
+    assignmentZNode = ZKUtil.joinZNode(baseZNode,			//'/hbase/unassigned' region过滤与分配节点 
         conf.get("zookeeper.znode.unassigned", "unassigned"));
     String tableZNodeDefault = "table";
-    masterTableZNode = ZKUtil.joinZNode(baseZNode,
+    masterTableZNode = ZKUtil.joinZNode(baseZNode,			//'/hbase/table' master用于控制表读写状态的节点
         conf.get("zookeeper.znode.masterTableEnableDisable", tableZNodeDefault));
-    clientTableZNode = ZKUtil.joinZNode(baseZNode,
+    clientTableZNode = ZKUtil.joinZNode(baseZNode,			//'/hbase/table' 客户端读取表的状态
             conf.get("zookeeper.znode.clientTableEnableDisable", tableZNodeDefault));
-    masterTableZNode92 = ZKUtil.joinZNode(baseZNode,
+    masterTableZNode92 = ZKUtil.joinZNode(baseZNode,		//'/hbase/table92' 
         conf.get("zookeeper.znode.masterTableEnableDisable92", "table92"));
-    clusterIdZNode = ZKUtil.joinZNode(baseZNode,
+    clusterIdZNode = ZKUtil.joinZNode(baseZNode,			//'/hbase/hbaseid' 保存唯一的集群ID 
         conf.get("zookeeper.znode.clusterId", "hbaseid"));
-    splitLogZNode = ZKUtil.joinZNode(baseZNode,
+    splitLogZNode = ZKUtil.joinZNode(baseZNode,				//'/hbase/splitlog' 日志分割任务分配 
         conf.get("zookeeper.znode.splitlog", HConstants.SPLIT_LOGDIR_NAME));
   }
 
