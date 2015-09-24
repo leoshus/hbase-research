@@ -73,7 +73,7 @@ public abstract class ZooKeeperNodeTracker extends ZooKeeperListener {
   public synchronized void start() {
     this.watcher.registerListener(this);
     try {
-      if(ZKUtil.watchAndCheckExists(watcher, node)) {
+      if(ZKUtil.watchAndCheckExists(watcher, node)) {//node 为'/hbase/shutdown' 当前集群的状态 
         byte [] data = ZKUtil.getDataAndWatch(watcher, node);
         if(data != null) {
           this.data = data;

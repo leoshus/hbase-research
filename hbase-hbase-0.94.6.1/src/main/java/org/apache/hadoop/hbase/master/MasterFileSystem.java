@@ -94,7 +94,9 @@ public class MasterFileSystem {
     // mismatched filesystems if hbase.rootdir is hdfs and fs.defaultFS is
     // default localfs.  Presumption is that rootdir is fully-qualified before
     // we get to here with appropriate fs scheme.
+    //设置HBase根目录
     this.rootdir = FSUtils.getRootDir(conf);
+    //HBase表创建和删除的临时目录/${hbase.rootdir}/.tmp
     this.tempdir = new Path(this.rootdir, HConstants.HBASE_TEMP_DIRECTORY);
     // Cover both bases, the old way of setting default fs and the new.
     // We're supposed to run on 0.20 and 0.21 anyways.
@@ -133,8 +135,9 @@ public class MasterFileSystem {
     checkRootDir(this.rootdir, conf, this.fs);
 
     // check if temp directory exists and clean it
+    //确认缓存目录(/${hbase.rootdir}/.tmp)存在并且为空   此方法只是在当前节点成为active master后执行一次
     checkTempDir(this.tempdir, conf, this.fs);
-
+    // '/${hbase.rootdir}/.oldlogs' 将要被删除的旧日志
     Path oldLogDir = new Path(this.rootdir, HConstants.HREGION_OLDLOGDIR_NAME);
 
     // Make sure the region servers can archive their old logs

@@ -809,7 +809,7 @@ public class SplitLogManager extends ZooKeeperListener {
     List<String> orphans;
     try {
        orphans = ZKUtil.listChildrenNoWatch(this.watcher,
-          this.watcher.splitLogZNode);
+          this.watcher.splitLogZNode);//'/hbase/splitlog' 日志分割任务分配 
       if (orphans == null) {
         LOG.warn("could not get children of " + this.watcher.splitLogZNode);
         return;

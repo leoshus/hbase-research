@@ -320,7 +320,7 @@ Server {
     if (this.conf.get("mapred.task.id") == null) {
       this.conf.set("mapred.task.id", "hb_m_" + this.serverName.toString());
     }
-    //创建ZooKeeperWatcher监听器
+    //创建ZooKeeperWatcher监听器  并初始化ZooKeeper连接
     this.zooKeeper = new ZooKeeperWatcher(conf, MASTER + ":" + isa.getPort(), this, true);
     //启动rpcServer中的线程
     this.rpcServer.startThreads();
@@ -392,8 +392,8 @@ Server {
       becomeActiveMaster(startupStatus);//阻塞等待直到当前master成为active master
 
       // We are either the active master or we were asked to shutdown
-      if (!this.stopped) {
-        finishInitialization(startupStatus, false);
+      if (!this.stopped) {//要么是active master  要么被动关闭
+        finishInitialization(startupStatus, false);//完成初始化
         loop();
       }
     } catch (Throwable t) {
@@ -453,6 +453,7 @@ Server {
     //监控节点'/hbase/shutdown' 维护集群状态
     this.clusterStatusTracker = new ClusterStatusTracker(getZooKeeper(), this);
     this.clusterStatusTracker.start();
+    //阻塞直到成为Active Master
     return this.activeMasterManager.blockUntilBecomingActiveMaster(startupStatus,
         this.clusterStatusTracker);
   }

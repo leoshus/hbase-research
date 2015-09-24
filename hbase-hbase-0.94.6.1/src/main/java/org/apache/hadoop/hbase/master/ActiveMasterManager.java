@@ -166,12 +166,12 @@ class ActiveMasterManager extends ZooKeeperListener {
         LOG.info("Adding ZNode for " + backupZNode +
           " in backup master directory");
         ZKUtil.createEphemeralNodeAndWatch(this.watcher, backupZNode,
-          this.sn.getVersionedBytes());
+          this.sn.getVersionedBytes());//将当前节点加入到备份节点
 
         String msg;
         byte [] bytes =
           ZKUtil.getDataAndWatch(this.watcher, this.watcher.masterAddressZNode);
-        if (bytes == null) {
+        if (bytes == null) {//master节点挂掉了
           msg = ("A master was detected, but went down before its address " +
             "could be read.  Attempting to become the next active master");
         } else {//发现创建的临时节点/hbase/master
