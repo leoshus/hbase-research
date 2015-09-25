@@ -120,8 +120,8 @@ public class HMasterCommandLine extends ServerCommandLine {
       if (LocalHBaseCluster.isLocal(conf)) {//本地集群即单机运行方式
         final MiniZooKeeperCluster zooKeeperCluster =
           new MiniZooKeeperCluster();
-        File zkDataPath = new File(conf.get(HConstants.ZOOKEEPER_DATA_DIR));//zookeeper 快照文件目录
-        int zkClientPort = conf.getInt(HConstants.ZOOKEEPER_CLIENT_PORT, 0);//zookeeper服务端口号
+        File zkDataPath = new File(conf.get(HConstants.ZOOKEEPER_DATA_DIR));//zookeeper 快照文件目录 hbase.zookeeper.property.dataDir
+        int zkClientPort = conf.getInt(HConstants.ZOOKEEPER_CLIENT_PORT, 0);//zookeeper服务端口号 hbase.zookeeper.property.clientPort
         if (zkClientPort == 0) {
           throw new IOException("No config value for "
               + HConstants.ZOOKEEPER_CLIENT_PORT);

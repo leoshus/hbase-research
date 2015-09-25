@@ -236,7 +236,9 @@ class WritableRpcEngine implements RpcEngine {
       return names[names.length-1];
     }
 
-    /** Construct an RPC server.
+    /**
+     * 构建RPC服务器 
+     * Construct an RPC server.
      * @param instance the instance whose methods will be called
      * @param conf the configuration to use
      * @param bindAddress the address to bind on to listen for connection
