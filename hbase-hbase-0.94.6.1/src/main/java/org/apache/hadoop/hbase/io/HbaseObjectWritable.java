@@ -609,6 +609,7 @@ public class HbaseObjectWritable implements Writable, WritableWithSize, Configur
   throws IOException {
     Class<?> declaredClass = CODE_TO_CLASS.get(WritableUtils.readVInt(in));
     Object instance;
+    //原生类型
     if (declaredClass.isPrimitive()) {            // primitive types
       if (declaredClass == Boolean.TYPE) {             // boolean
         instance = Boolean.valueOf(in.readBoolean());
@@ -631,6 +632,7 @@ public class HbaseObjectWritable implements Writable, WritableWithSize, Configur
       } else {
         throw new IllegalArgumentException("Not a primitive: "+declaredClass);
       }
+      //递归读数组
     } else if (declaredClass.isArray()) {              // array
       if (declaredClass.equals(byte [].class)) {
         instance = Bytes.readByteArray(in);
@@ -671,6 +673,7 @@ public class HbaseObjectWritable implements Writable, WritableWithSize, Configur
         throw new IOException("Can't find class " + className, e);
       }
     } else {                                      // Writable or Serializable
+    	//实现类名
       Class instanceClass = null;
       int b = (byte)WritableUtils.readVInt(in);
       if (b == NOT_ENCODED) {
@@ -685,6 +688,7 @@ public class HbaseObjectWritable implements Writable, WritableWithSize, Configur
         instanceClass = CODE_TO_CLASS.get(b);
       }
       if(Writable.class.isAssignableFrom(instanceClass)){
+    	  //Writable实现类需要自己实现反序列化
         Writable writable = WritableFactories.newInstance(instanceClass, conf);
         try {
           writable.readFields(in);

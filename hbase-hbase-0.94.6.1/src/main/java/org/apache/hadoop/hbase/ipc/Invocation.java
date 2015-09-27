@@ -98,6 +98,7 @@ public class Invocation extends VersionedWritable implements Configurable {
   public void readFields(DataInput in) throws IOException {
     try {
       super.readFields(in);
+      //请求方法名
       methodName = in.readUTF();
       clientVersion = in.readLong();
       clientMethodsHash = in.readInt();
@@ -119,9 +120,13 @@ public class Invocation extends VersionedWritable implements Configurable {
         methodName = new String(buf);
       }
     }
+    //参数个数
     parameters = new Object[in.readInt()];
+    //对应类型
     parameterClasses = new Class[parameters.length];
     HbaseObjectWritable objectWritable = new HbaseObjectWritable();
+    //每个参数根据不同类型，反序列化
+    // 序列化过程，支持原生类型，字符串，Writable实现，和数组
     for (int i = 0; i < parameters.length; i++) {
       parameters[i] = HbaseObjectWritable.readObject(in, objectWritable,
         this.conf);
