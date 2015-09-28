@@ -324,7 +324,7 @@ public abstract class HBaseServer implements RpcServer {
           result = new HbaseObjectWritable(value);
         }
       }
-
+      //序列化大小
       int size = BUFFER_INITIAL_SIZE;
       if (result instanceof WritableWithSize) {
         // get the size hint.
@@ -346,14 +346,18 @@ public abstract class HBaseServer implements RpcServer {
       DataOutputStream out = new DataOutputStream(buf);
       try {
         // Call id.
+    	  //客户端请求id 
         out.writeInt(this.id);
         // Write flag.
+        //异常标示
         byte flag = (error != null)?
           ResponseFlag.getErrorAndLengthSet(): ResponseFlag.getLengthSetOnly();
         out.writeByte(flag);
         // Place holder for length set later below after we
         // fill the buffer with data.
+        //长度占位  
         out.writeInt(0xdeadbeef);
+        //处理结果
         out.writeInt(status.state);
       } catch (IOException e) {
         errorClass = e.getClass().getName();
@@ -361,9 +365,10 @@ public abstract class HBaseServer implements RpcServer {
       }
 
       try {
+    	  //序列化响应对象
         if (error == null) {
           result.write(out);
-        } else {
+        } else {//异常信息  
           WritableUtils.writeString(out, errorClass);
           WritableUtils.writeString(out, error);
         }
@@ -374,9 +379,11 @@ public abstract class HBaseServer implements RpcServer {
       // Set the length into the ByteBuffer after call id and after
       // byte flag.
       ByteBuffer bb = buf.getByteBuffer();
+      //数据总大小
       int bufSiz = bb.remaining();
       // Move to the size location in our ByteBuffer past call.id
       // and past the byte flag.
+      //长度占位字节填充
       bb.position(Bytes.SIZEOF_INT + Bytes.SIZEOF_BYTE); 
       bb.putInt(bufSiz);
       bb.position(0);
@@ -455,6 +462,11 @@ public abstract class HBaseServer implements RpcServer {
     }
   }
 
+  /**
+   * 1 通过RRoubin算法选择一个Reader。
+	 2 把该连接对应的SocketChannel的OP_READ事件注册到选择的Reader的selector上，为读做准备。
+	 3 创建一个Connection实例，并attach到OP_READ事件的SelectionKey上。这样在读该channel上的数据实，就能拿到该connection。
+   */
   /** Listens on the socket. Creates jobs for the handler threads*/
   private class Listener extends Thread {
 
@@ -475,15 +487,19 @@ public abstract class HBaseServer implements RpcServer {
     public Listener() throws IOException {
       address = new InetSocketAddress(bindAddress, port);
       // Create a new server socket and set to non blocking mode
+      //以非阻塞模式创建一个Server端channel
       acceptChannel = ServerSocketChannel.open();
       acceptChannel.configureBlocking(false);
 
       // Bind the server socket to the local host and port
+      //绑定端口
       bind(acceptChannel.socket(), address, backlogLength);
       port = acceptChannel.socket().getLocalPort(); //Could be an ephemeral port
       // create a selector;
+      //创建主线程Listener的selector
       selector= Selector.open();
 
+      //Reader线程池
       readers = new Reader[readThreads];//readThreads 可通过ipc.server.read.threadpool.size 默认值为10
       readPool = Executors.newFixedThreadPool(readThreads,
         new ThreadFactoryBuilder().setNameFormat(
@@ -495,12 +511,18 @@ public abstract class HBaseServer implements RpcServer {
       }
 
       // Register accepts on the server socket with the selector.
+      //注册ACCEPT事件,selector可以处理连接请求
       acceptChannel.register(selector, SelectionKey.OP_ACCEPT);
       this.setName("IPC Server listener on " + port);
       this.setDaemon(true);
     }
 
 
+    /**
+     * reader 基本上只是做了一个代理，在接收到有数据可读后，通过SelectionKey 拿到connection，通过connection来读数据。
+     * @author Administrator
+     *
+     */
     private class Reader implements Runnable {
       private volatile boolean adding = false;
       private final Selector readSelector;
@@ -525,7 +547,9 @@ public abstract class HBaseServer implements RpcServer {
         while (running) {
           SelectionKey key = null;
           try {
+        	//同步读
             readSelector.select();
+            //有新链接进来，等待
             while (adding) {
               this.wait(1000);
             }
@@ -536,6 +560,7 @@ public abstract class HBaseServer implements RpcServer {
               iter.remove();
               if (key.isValid()) {
                 if (key.isReadable()) {
+                //读就位 
                   doRead(key);
                 }
               }
@@ -633,6 +658,7 @@ public abstract class HBaseServer implements RpcServer {
       while (running) {
         SelectionKey key = null;
         try {
+          //阻塞select，ACCEPT并发不高
           selector.select(); // FindBugs IS2_INCONSISTENT_SYNC
           Iterator<SelectionKey> iter = selector.selectedKeys().iterator();
           while (iter.hasNext()) {
@@ -641,6 +667,7 @@ public abstract class HBaseServer implements RpcServer {
             try {
               if (key.isValid()) {
                 if (key.isAcceptable())
+                  //Accept过程
                   doAccept(key);
               }
             } catch (IOException ignored) {
@@ -710,17 +737,21 @@ public abstract class HBaseServer implements RpcServer {
       ServerSocketChannel server = (ServerSocketChannel) key.channel();
 
       SocketChannel channel;
+      //ACCEPT成功，则分配给Reader处理具体IO
       while ((channel = server.accept()) != null) {
         channel.configureBlocking(false);
         channel.socket().setTcpNoDelay(tcpNoDelay);
         channel.socket().setKeepAlive(tcpKeepAlive);
-
+        //顺序拿Reader
         Reader reader = getReader();
         try {
+          //注册，READ事件到selector
           reader.startAdd();
           SelectionKey readKey = reader.registerChannel(channel);
+          //业务层面的Connection，放入attach共享  
           c = getConnection(channel, System.currentTimeMillis());
           readKey.attach(c);
+          //当前链接
           synchronized (connectionList) {
             connectionList.add(numConnections, c);
             numConnections++;
@@ -738,13 +769,19 @@ public abstract class HBaseServer implements RpcServer {
 
     void doRead(SelectionKey key) throws InterruptedException {
       int count = 0;
-      Connection c = (Connection)key.attachment();
+      /**
+       * Connection 建立连接最先读到的是client发过来的长度为6个字节的heade报文。
+		  内容是：'HBas' + VERSION + AUTH_CODE，VERSION 是rpc的版本，是字节0，AUTH_CODE是认证的字节码80，默认代表SIMPLE，即不认证。
+	 	  如果属性hbase.security.authentication的配置为‘kerberos’即用kerberos来做安全认证。但这个需要hdfs层面也做了kerberos安全，才行。
+       */
+      Connection c = (Connection)key.attachment();	
       if (c == null) {
         return;
       }
       c.setLastContact(System.currentTimeMillis());
 
       try {
+    	  //业务逻辑都封装在Connection里 
         count = c.readAndProcess();
       } catch (InterruptedException ieo) {
         throw ieo;
@@ -796,6 +833,7 @@ public abstract class HBaseServer implements RpcServer {
     Responder() throws IOException {
       this.setName("IPC Server Responder");
       this.setDaemon(true);
+      //打开一个selector 后续需要写回数据的通道会注册WRITE事件上来
       writeSelector = Selector.open(); // create a selector
       pending = 0;
     }
@@ -822,6 +860,7 @@ public abstract class HBaseServer implements RpcServer {
       while (running) {
         try {
           waitPending();     // If a channel is being registered, wait.
+          //监听WRITE READY事件
           writeSelector.select(purgeTimeout);
           Iterator<SelectionKey> iter = writeSelector.selectedKeys().iterator();
           while (iter.hasNext()) {
@@ -829,6 +868,7 @@ public abstract class HBaseServer implements RpcServer {
             iter.remove();
             try {
               if (key.isValid() && key.isWritable()) {
+            	  //异步写回 若一次没写完 继续监听对应channel的WRITE事件 继续写
                   doAsyncWrite(key);
               }
             } catch (IOException e) {
@@ -845,6 +885,7 @@ public abstract class HBaseServer implements RpcServer {
           // long time, discard them.
           //
           LOG.debug("Checking for old call responses.");
+          //长时间还没写完的请求，清理之，并关闭链接  
           ArrayList<Call> calls;
 
           // get the list of channels from list of keys.
@@ -898,8 +939,9 @@ public abstract class HBaseServer implements RpcServer {
       if (key.channel() != call.connection.channel) {
         throw new IOException("doAsyncWrite: bad channel");
       }
-
+      
       synchronized(call.connection.responseQueue) {
+    	//如果这个Connection的数据写完了，则清理key  
         if (processResponse(call.connection.responseQueue, false)) {
           try {
             key.interestOps(0);
@@ -954,7 +996,7 @@ public abstract class HBaseServer implements RpcServer {
           }
           //
           // Extract the first call
-          //
+          //写请求
           call = responseQueue.peek();
           SocketChannel channel = call.connection.channel;
           if (LOG.isDebugEnabled()) {
@@ -963,13 +1005,14 @@ public abstract class HBaseServer implements RpcServer {
           }
           //
           // Send as much data as we can in the non-blocking fashion
-          //
+          //异步写回
           int numBytes = channelWrite(channel, call.response);
           if (numBytes < 0) {
             // Error flag is set, so returning here closes connection and
             // clears responseQueue.                   
             return true;
           }
+          //如果写完了，递减RPC统计数目
           if (!call.response.hasRemaining()) {
             responseQueue.poll();
             responseQueuesSizeThrottler.decrease(call.response.limit());    
@@ -984,6 +1027,7 @@ public abstract class HBaseServer implements RpcServer {
               LOG.debug(getName() + ": responding to #" + call.id + " from " +
                         call.connection + " Wrote " + numBytes + " bytes.");
             }
+            //如果没写完，放回去，下次继续写
           } else {
             if (inHandler) {
               // set the serve time when the response has to be sent later
@@ -1175,12 +1219,13 @@ public abstract class HBaseServer implements RpcServer {
          * then iterate until we read first RPC or until there is no data left.
          */
         int count;
+        //读int，4个字节，代表data长度  
         if (dataLengthBuffer.remaining() > 0) {
           count = channelRead(channel, dataLengthBuffer);
           if (count < 0 || dataLengthBuffer.remaining() > 0)
             return count;
         }
-
+        //version还没读，意味着这个client是刚连上来，则读version，一个字节  
         if (!versionRead) {
           //Every connection is expected to send the header.
           ByteBuffer versionBuffer = ByteBuffer.allocate(1);
@@ -1191,6 +1236,7 @@ public abstract class HBaseServer implements RpcServer {
           int version = versionBuffer.get(0);
 
           dataLengthBuffer.flip();
+          //前四个字节固定，或者版本不对，返回异常  
           if (!HEADER.equals(dataLengthBuffer) || version != CURRENT_VERSION) {
             //Warning is ok since this is not supposed to happen.
             LOG.warn("Incorrect header or version mismatch from " +
@@ -1200,33 +1246,37 @@ public abstract class HBaseServer implements RpcServer {
             setupBadVersionResponse(version);
             return -1;
           }
+          //HEADER读完，继续下一个请求 
           dataLengthBuffer.clear();
           versionRead = true;
           continue;
         }
-
+        //根据data length，读data  
         if (data == null) {
           dataLengthBuffer.flip();
           dataLength = dataLengthBuffer.getInt();
-
+          //-1代表ping请求  
           if (dataLength == HBaseClient.PING_CALL_ID) {
             dataLengthBuffer.clear();
             return 0;  //ping message
           }
+          //分配内存
           data = ByteBuffer.allocate(dataLength);
           incRpcCount();  // Increment the rpc count
         }
-
+        //读入数据  
         count = channelRead(channel, data);
-
+        //读满了，继续业务处理，否则直接返回，下次继续读，一直读满为止  
         if (data.remaining() == 0) {
           dataLengthBuffer.clear();
           data.flip();
+          //header之后是业务请求 
           if (headerRead) {
             processData(data.array());
             data = null;
             return count;
           }
+          //读header信息，主要是初始化Connection的protocol属性  
           processHeader();
           headerRead = true;
           data = null;
@@ -1286,7 +1336,9 @@ public abstract class HBaseServer implements RpcServer {
     protected void processData(byte[] buf) throws  IOException, InterruptedException {
       DataInputStream dis =
         new DataInputStream(new ByteArrayInputStream(buf));
+      //请求的客户端id  
       int id = dis.readInt();                    // try to read an id
+      //请求大小
       long callSize = buf.length;
 
       if (LOG.isDebugEnabled()) {
@@ -1294,6 +1346,7 @@ public abstract class HBaseServer implements RpcServer {
       }
 
       // Enforcing the call queue size, this triggers a retry in the client
+      //大小超过限制，则返回异常
       if ((callSize + callQueueSize.get()) > maxQueueSize) {
         final Call callTooBig =
           new Call(id, null, this, responder, callSize);
@@ -1304,10 +1357,11 @@ public abstract class HBaseServer implements RpcServer {
         responder.doRespond(callTooBig);
         return;
       }
-
+      //param对象，默认Invocation
       Writable param;
       try {
         param = ReflectionUtils.newInstance(paramClass, conf);//read param
+        //Invocation反序列化
         param.readFields(dis);
       } catch (Throwable t) {
         LOG.warn("Unable to read call parameters for client " +
@@ -1322,7 +1376,9 @@ public abstract class HBaseServer implements RpcServer {
         responder.doRespond(readParamsFailedCall);
         return;
       }
+      //将请求添加到处理队列，后续Handler线程处理 
       Call call = new Call(id, param, this, responder, callSize);
+      //递增请求队列大小
       callQueueSize.add(callSize);
 
       if (priorityCallQueue != null && getQosLevel(param) > highPriorityLevel) {
@@ -1395,6 +1451,7 @@ public abstract class HBaseServer implements RpcServer {
       while (running) {
         try {
           status.pause("Waiting for a call");
+          //从queue中拿请求 
           Call call = myCallQueue.take(); // pop the queue; maybe blocked here
           updateCallQueueLenMetrics(myCallQueue);
           status.setStatus("Setting up call");
@@ -1408,7 +1465,7 @@ public abstract class HBaseServer implements RpcServer {
           String errorClass = null;
           String error = null;
           Writable value = null;
-
+          //ThreadLocal请求
           CurCall.set(call);
           try {
             if (!started)
@@ -1423,6 +1480,7 @@ public abstract class HBaseServer implements RpcServer {
             RequestContext.set(call.connection.ticket, getRemoteIp(),
                 call.connection.protocol);
             // make the call
+            //反射调用对应服务，返回结果
             value = call(call.connection.protocol, call.param, call.timestamp, 
                 status);
           } catch (Throwable e) {
@@ -1435,14 +1493,17 @@ public abstract class HBaseServer implements RpcServer {
             RequestContext.clear();
           }
           CurCall.set(null);
+          //减小queue大小
           callQueueSize.add(call.getSize() * -1);
           // Set the response for undelayed calls and delayed calls with
           // undelayed responses.
+          //序列化写回response
           if (!call.isDelayed() || !call.isReturnValueDelayed()) {
             call.setResponse(value,
               errorClass == null? Status.SUCCESS: Status.ERROR,
                 errorClass, error);
           }
+          //通过responder写回响应
           call.sendResponseIfReady();
           status.markComplete("Sent response");
         } catch (InterruptedException e) {
@@ -1522,6 +1583,7 @@ public abstract class HBaseServer implements RpcServer {
     // temporary backward compatibility
     String oldMaxQueueSize = this.conf.get("ipc.server.max.queue.size");
     if (oldMaxQueueSize == null) {
+    //接收请求队列的大小 即call的个数 即线程个数*10
       this.maxQueueLength =
         this.conf.getInt("ipc.server.max.callqueue.length",
           handlerCount * DEFAULT_MAX_CALLQUEUE_LENGTH_PER_HANDLER);
@@ -1532,9 +1594,14 @@ public abstract class HBaseServer implements RpcServer {
       this.maxQueueLength = Integer.getInteger(oldMaxQueueSize);
     }
 
+    //接收请求队列的缓存call的内存最大值 默认是1024*1024*1024=1G的空间
+    //HBase rs会做流控 即如果客户端的请求在全局队列里的个数和大小有一个超过了maxQueueLength和maxQueueSize 就会拒绝,告诉客户端服务端出现拥堵
     this.maxQueueSize =
       this.conf.getInt("ipc.server.max.callqueue.size",
         DEFAULT_MAX_CALLQUEUE_SIZE);
+    //读socket的线程数,rs会对建立连接的channel绑定到一个线程上,采用rr(RRoubin)算法来选择readThread
+    //这个设计和netty的workGroup设计类似,都是在服务端开启多个读线程,负责将请求反序列化成Call 放到callQueue队列中,
+    //由handler线程去取处理实现调用 reader线程的创建在Listener来创建 有一个线程池来执行 reade是一个runnable
      this.readThreads = conf.getInt(
         "ipc.server.read.threadpool.size",
         10);
@@ -1556,7 +1623,7 @@ public abstract class HBaseServer implements RpcServer {
       this.replicationQueue = new LinkedBlockingQueue<Call>(maxQueueSize);
     }
     // Start the listener here and let it bind to the port
-    //启动一个Listener线程 监听client的请求 将请求放入nio请求队列
+    //启动一个Listener线程 监听client的请求 将请求放入nio请求队列 相当于netty的boss线程      Reactor主线程 接收Connect请求
     listener = new Listener();
     this.port = listener.getAddress().getPort();
     this.rpcMetrics = new HBaseRpcMetrics(
@@ -1573,7 +1640,7 @@ public abstract class HBaseServer implements RpcServer {
         conf.getLong(RESPONSE_QUEUES_MAX_SIZE, DEFAULT_RESPONSE_QUEUES_MAX_SIZE));
 
     // Create the responder here
-    //启动一个responder线程
+    //启动一个responder线程  regionServer的写操作由Responder线程负责 即服务端逻辑执行完了 把结果给客户端
     responder = new Responder();
   }
 
@@ -1665,8 +1732,11 @@ public abstract class HBaseServer implements RpcServer {
    */
   @Override
   public synchronized void startThreads() {
+	//启动responder线程
     responder.start();
+    //启动listener线程
     listener.start();
+    //Handler线程启动 默认10
     handlers = startHandlers(callQueue, handlerCount);
     priorityHandlers = startHandlers(priorityCallQueue, priorityHandlerCount);
     replicationHandlers = startHandlers(replicationQueue, numOfReplicationHandlers);
@@ -1771,7 +1841,7 @@ public abstract class HBaseServer implements RpcServer {
    */
   protected int channelWrite(WritableByteChannel channel,
                                     ByteBuffer buffer) throws IOException {
-
+	//如果小于BUFFER，直接写，否则分批写  
     int count =  (buffer.remaining() <= NIO_BUFFER_LIMIT) ?
            channel.write(buffer) : channelIO(null, channel, buffer);
     if (count > 0) {
@@ -1824,22 +1894,25 @@ public abstract class HBaseServer implements RpcServer {
     int initialRemaining = buf.remaining();
     int ret = 0;
 
+    //没写完，一直写  
     while (buf.remaining() > 0) {
       try {
+    	//每次要写的数量，分批
         int ioSize = Math.min(buf.remaining(), NIO_BUFFER_LIMIT);
+        //写之前，写调整limit到目标index，写回的时候是取position和limit之间的数据  
         buf.limit(buf.position() + ioSize);
-
+        //异步写，有可能只写了部分数据  
         ret = (readCh == null) ? writeCh.write(buf) : readCh.read(buf);
-
+        //只写了部分数据，说明OS IO很繁忙，直接返回，下次继续写  
         if (ret < ioSize) {
           break;
         }
-
+       //每批数据写完，将limit重置
       } finally {
         buf.limit(originalLimit);
       }
     }
-
+    //返回写了多少数据
     int nBytes = initialRemaining - buf.remaining();
     return (nBytes > 0) ? nBytes : ret;
   }

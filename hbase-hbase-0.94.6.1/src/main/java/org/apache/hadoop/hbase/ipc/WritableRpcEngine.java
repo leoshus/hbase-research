@@ -288,7 +288,7 @@ class WritableRpcEngine implements RpcEngine {
         status.setRPC(call.getMethodName(), call.getParameters(), receivedTime);
         status.setRPCPacket(param);
         status.resume("Servicing call");
-
+        //method对象  
         Method method =
           protocol.getMethod(call.getMethodName(),
                                    call.getParameterClasses());
@@ -310,6 +310,7 @@ class WritableRpcEngine implements RpcEngine {
           }
         }
         Object impl = null;
+        //实现类是HRegionServer
         if (protocol.isAssignableFrom(this.implementation)) {
           impl = this.instance;
         }
@@ -319,6 +320,7 @@ class WritableRpcEngine implements RpcEngine {
 
         long startTime = System.currentTimeMillis();
         Object[] params = call.getParameters();
+        //反射调用
         Object value = method.invoke(impl, params);
         int processingTime = (int) (System.currentTimeMillis() - startTime);
         int qTime = (int) (startTime-receivedTime);
@@ -333,7 +335,7 @@ class WritableRpcEngine implements RpcEngine {
         rpcMetrics.rpcProcessingTime.inc(processingTime);
         rpcMetrics.inc(call.getMethodName(), processingTime);
         if (verbose) log("Return: "+value);
-
+        //包装返回对象  
         HbaseObjectWritable retVal =
           new HbaseObjectWritable(method.getReturnType(), value);
         long responseSize = retVal.getWritableSize();

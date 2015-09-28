@@ -577,6 +577,7 @@ public abstract class FSUtils {
   }
 
   /**
+   * HBase数据存储根目录hbase.rootdir
    * @param c configuration
    * @return Path to hbase root directory: i.e. <code>hbase.rootdir</code> from
    * configuration as a qualified Path.

@@ -560,6 +560,7 @@ public class HConnectionManager {
 
     // region cache prefetch is enabled by default. this set contains all
     // tables whose region cache prefetch are disabled.
+    //regionCachePrefetchDisabledTables 保存所有不支持预获取region的tables
     private final Set<Integer> regionCachePrefetchDisabledTables =
       new CopyOnWriteArraySet<Integer>();
 
@@ -1020,7 +1021,7 @@ public class HConnectionManager {
           synchronized (regionLockObject) {
             // If the parent table is META, we may want to pre-fetch some
             // region info into the global region cache for this table.
-        	//若parentTable是.META.表 则预先获取.META.的一些数据   默认是10条
+        	//若parentTable是.META.表 并且支持预获取(即不在集合regionCachePrefetchDisabledTables中) 则预先获取.META.的一些数据   默认是10条
             if (Bytes.equals(parentTable, HConstants.META_TABLE_NAME) &&
                 (getRegionCachePrefetch(tableName)) )  {
               prefetchRegionCache(tableName, row);
@@ -1030,16 +1031,17 @@ public class HConnectionManager {
             // same query while we were waiting on the lock. If not supposed to
             // be using the cache, delete any existing cached location so it won't
             // interfere.
-            if (useCache) {
+            if (useCache) {//再次检查缓存 可能其他线程已经缓存了当前查找的location
               location = getCachedLocation(tableName, row);
               if (location != null) {
                 return location;
               }
-            } else {//若不使用缓存则清除之  比如row对应的region发生了分裂 用老的location启动rpc时会抛出
+            } else {//若不使用缓存则清除之  比如row对应的region发生了分裂 用老的location启动rpc时会抛出异常 此时通过useCache=false重新寻址 并把老的cache删除掉
               deleteCachedLocation(tableName, row);
             }
 
             // Query the root or meta region for the location of the meta region
+            //发起rpc请求 获取<=该key的行
             regionInfoRow = server.getClosestRowBefore(
             metaLocation.getRegionInfo().getRegionName(), metaKey,
             HConstants.CATALOG_FAMILY);
@@ -1047,16 +1049,19 @@ public class HConnectionManager {
           if (regionInfoRow == null) {
             throw new TableNotFoundException(Bytes.toString(tableName));
           }
-          byte [] value = regionInfoRow.getValue(HConstants.CATALOG_FAMILY,
-              HConstants.REGIONINFO_QUALIFIER);
+          //region信息 做校验 region会处于不稳定状态
+          byte [] value = regionInfoRow.getValue(HConstants.CATALOG_FAMILY,//info
+              HConstants.REGIONINFO_QUALIFIER);//regioninfo
           if (value == null || value.length == 0) {
             throw new IOException("HRegionInfo was null or empty in " +
               Bytes.toString(parentTable) + ", row=" + regionInfoRow);
           }
           // convert the row result into the HRegionLocation we need!
+          //反序列化
           HRegionInfo regionInfo = (HRegionInfo) Writables.getWritable(
               value, new HRegionInfo());
           // possible we got a region of a different table...
+          //校验
           if (!Bytes.equals(regionInfo.getTableName(), tableName)) {
             throw new TableNotFoundException(
                   "Table '" + Bytes.toString(tableName) + "' was not found, got: " +
@@ -1074,8 +1079,9 @@ public class HConnectionManager {
               regionInfo.getRegionNameAsString());
           }
 
+          //获取region的server location
           value = regionInfoRow.getValue(HConstants.CATALOG_FAMILY,
-              HConstants.SERVER_QUALIFIER);
+              HConstants.SERVER_QUALIFIER);//server
           String hostAndPort = "";
           if (value != null) {
             hostAndPort = Bytes.toString(value);
@@ -1088,9 +1094,11 @@ public class HConnectionManager {
           }
 
           // Instantiate the location
-          String hostname = Addressing.parseHostname(hostAndPort);
-          int port = Addressing.parsePort(hostAndPort);
+          String hostname = Addressing.parseHostname(hostAndPort);//获取hostname 分隔':'
+          int port = Addressing.parsePort(hostAndPort);//获取端口号
+          //实例化该region的server location
           location = new HRegionLocation(regionInfo, hostname, port);
+          //缓存此location
           cacheLocation(tableName, location);
           return location;
         } catch (TableNotFoundException e) {
@@ -1115,11 +1123,13 @@ public class HConnectionManager {
             throw e;
           }
           // Only relocate the parent region if necessary
+          //存在网络问题则重新查找
           if(!(e instanceof RegionOfflineException ||
               e instanceof NoServerForRegionException)) {
             relocateRegion(parentTable, metaKey);
           }
         }
+        //重试次数越多 sleep越长时间  interrupt则退出重试
         try{
           Thread.sleep(ConnectionUtils.getPauseTime(this.pause, tries));
         } catch (InterruptedException e) {
@@ -1250,7 +1260,7 @@ public class HConnectionManager {
       synchronized (this.cachedRegionLocations) {
         result = this.cachedRegionLocations.get(key);
         // if tableLocations for this table isn't built yet, make one
-        if (result == null) {
+        if (result == null) {//如果不存在 则初始化一个空的列表
           result = new SoftValueSortedMap<byte [], HRegionLocation>(
               Bytes.BYTES_COMPARATOR);
           this.cachedRegionLocations.put(key, result);
@@ -1275,6 +1285,7 @@ public class HConnectionManager {
     }
 
     /*
+     * 将一个新发现的HRegionLocation放进缓存
      * Put a newly discovered HRegionLocation into the cache.
      */
     private void cacheLocation(final byte [] tableName,
@@ -1573,7 +1584,7 @@ public class HConnectionManager {
         }
 
         // step 2: make the requests
-
+        //发起请求
         Map<HRegionLocation, Future<MultiResponse>> futures =
             new HashMap<HRegionLocation, Future<MultiResponse>>(
                 actionsByServer.size());
@@ -1583,7 +1594,7 @@ public class HConnectionManager {
         }
 
         // step 3: collect the failures and successes and prepare for retry
-
+        //收集失败和成功请求  并准备重试
         for (Entry<HRegionLocation, Future<MultiResponse>> responsePerServer
              : futures.entrySet()) {
           HRegionLocation loc = responsePerServer.getKey();
