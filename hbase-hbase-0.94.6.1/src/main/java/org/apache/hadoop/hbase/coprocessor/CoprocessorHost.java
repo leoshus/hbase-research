@@ -51,6 +51,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 /**
+ * 维护所有的协处理器实例和它们专用的环境
  * Provides the common setup framework and runtime services for coprocessor
  * invocation from HBase services.
  * @param <E> the specific environment extension that a concrete implementation

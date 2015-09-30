@@ -25,6 +25,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.util.VersionInfo;
+import org.jruby.RubyProcess.Sys;
 
 /**
  * Adds HBase configuration files to a Configuration
