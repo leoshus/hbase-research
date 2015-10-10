@@ -47,13 +47,15 @@ bin=`cd "$bin">/dev/null; pwd`
 
 . "$bin"/hbase-config.sh
 
-# get arguments
+# get arguments  获取第一个参数
 startStop=$1
 shift
 
+#获取第二个参数
 command=$1
 shift
 
+#将现存的日志号 依次加一
 hbase_rotate_log ()
 {
     log=$1;
@@ -105,6 +107,7 @@ fi
 
 # Some variables
 # Work out java location so can print version into log.
+#获取JAVA命令的path
 if [ "$JAVA_HOME" != "" ]; then
   #echo "run java in $JAVA_HOME"
   JAVA_HOME=$JAVA_HOME
@@ -118,9 +121,9 @@ export HBASE_LOG_PREFIX=hbase-$HBASE_IDENT_STRING-$command-$HOSTNAME
 export HBASE_LOGFILE=$HBASE_LOG_PREFIX.log
 export HBASE_ROOT_LOGGER="INFO,DRFA"
 export HBASE_SECURITY_LOGGER="INFO,DRFAS"
-logout=$HBASE_LOG_DIR/$HBASE_LOG_PREFIX.out  
+logout=$HBASE_LOG_DIR/$HBASE_LOG_PREFIX.out  #定义日志输出
 loggc=$HBASE_LOG_DIR/$HBASE_LOG_PREFIX.gc
-loglog="${HBASE_LOG_DIR}/${HBASE_LOGFILE}"
+loglog="${HBASE_LOG_DIR}/${HBASE_LOGFILE}" 
 pid=$HBASE_PID_DIR/hbase-$HBASE_IDENT_STRING-$command.pid
 
 if [ "$HBASE_USE_GC_LOGFILE" = "true" ]; then
@@ -132,11 +135,12 @@ if [ "$HBASE_NICENESS" = "" ]; then
     export HBASE_NICENESS=0
 fi
 
+#根据第一个参数执行命令
 case $startStop in
 
   (start)
     mkdir -p "$HBASE_PID_DIR"
-    if [ -f $pid ]; then
+    if [ -f $pid ]; then  #判断进程是否启动
       if kill -0 `cat $pid` > /dev/null 2>&1; then
         echo $command running as process `cat $pid`.  Stop it first.
         exit 1

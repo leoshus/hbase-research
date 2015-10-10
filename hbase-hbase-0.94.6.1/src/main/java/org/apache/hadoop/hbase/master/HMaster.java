@@ -280,6 +280,7 @@ Server {
     if (initialIsa.getAddress() == null) {
       throw new IllegalArgumentException("Failed resolve of " + initialIsa);
     }
+    //RPC hanlder数目 默认是25
     int numHandlers = conf.getInt("hbase.master.handler.count",
       conf.getInt("hbase.regionserver.handler.count", 25));
     //创建一个rpcServer

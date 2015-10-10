@@ -141,14 +141,14 @@ public class LocalHBaseCluster {
     conf.set(HConstants.MASTER_PORT, "0");
     conf.set(HConstants.REGIONSERVER_PORT, "0");
     this.masterClass = (Class<? extends HMaster>)
-      conf.getClass(HConstants.MASTER_IMPL, masterClass);
-    // Start the HMasters.
+      conf.getClass(HConstants.MASTER_IMPL, masterClass);//hbase.master.impl
+    // Start the HMasters.  实例化LocalHMaster
     for (int i = 0; i < noMasters; i++) {
       addMaster(new Configuration(conf), i);
     }
-    // Start the HRegionServers.
+    // Start the HRegionServers.  实例化HRegionServer
     this.regionServerClass =
-      (Class<? extends HRegionServer>)conf.getClass(HConstants.REGION_SERVER_IMPL,
+      (Class<? extends HRegionServer>)conf.getClass(HConstants.REGION_SERVER_IMPL,//hbase.regionserver.impl
        regionServerClass);
 
     for (int i = 0; i < noRegionServers; i++) {
@@ -432,7 +432,7 @@ public class LocalHBaseCluster {
    * @return True if a 'local' address in hbase.master value.
    */
   public static boolean isLocal(final Configuration c) {
-    boolean mode = c.getBoolean(HConstants.CLUSTER_DISTRIBUTED, HConstants.DEFAULT_CLUSTER_DISTRIBUTED);
+    boolean mode = c.getBoolean(HConstants.CLUSTER_DISTRIBUTED, HConstants.DEFAULT_CLUSTER_DISTRIBUTED);//hbase.cluster.distributed  是否是集群方式启动 默认为false
     return(mode == HConstants.CLUSTER_IS_LOCAL);
   }
 
