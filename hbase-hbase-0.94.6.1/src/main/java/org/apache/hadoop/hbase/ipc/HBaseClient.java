@@ -577,6 +577,7 @@ public class HBaseClient {
 
       try {
         while (waitForWork()) {//wait here for work - read or close connection
+         //接收并反序列化服务端响应消息
           receiveResponse();
         }
       } catch (Throwable t) {
@@ -628,13 +629,16 @@ public class HBaseClient {
       }
     }
 
-    /* Receive a response.
+    /*
+     *  接收服务端响应
+     *  Receive a response.
      * Because only one receiver, so no synchronization on in.
      */
     protected void receiveResponse() {
-      if (shouldCloseConnection.get()) {
+      if (shouldCloseConnection.get()) {//连接是否关闭
         return;
       }
+      //更新lastActivity为current time
       touch();
 
       try {
@@ -643,21 +647,26 @@ public class HBaseClient {
         // of the response (int) followed by data.
 
         // Read the call id.
+    	//读取调用的call ID
         int id = in.readInt();
 
         if (LOG.isDebugEnabled())
           LOG.debug(getName() + " got value #" + id);
+        //根据Call id查找对应的Call对象
         Call call = calls.get(id);
 
         // Read the flag byte
+        //读取异常标识
         byte flag = in.readByte();
         boolean isError = ResponseFlag.isError(flag);
         if (ResponseFlag.isLength(flag)) {
           // Currently length if present is unused.
+        	//读取长度占位  0xdeadbeef
           in.readInt();
         }
+        //读取状态
         int state = in.readInt(); // Read the state.  Currently unused.
-        if (isError) {
+        if (isError) {//调用出错情况
           if (call != null) {
             //noinspection ThrowableInstanceNeverThrown
             call.setException(new RemoteException(WritableUtils.readString(in),
@@ -665,6 +674,7 @@ public class HBaseClient {
           }
         } else {
           Writable value = ReflectionUtils.newInstance(valueClass, conf);
+          //读取返回结果
           value.readFields(in);                 // read value
           // it's possible that this call may have been cleaned up due to a RPC
           // timeout, so check if it still exists before setting the value.

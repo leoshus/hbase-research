@@ -1368,6 +1368,7 @@ public class HConnectionManager {
               InetSocketAddress address = isa != null? isa:
                 new InetSocketAddress(hostname, port);
               // definitely a cache miss. establish an RPC for this RS
+              //为当前的RS建立RPC连接
               server = HBaseRPC.waitForProxy(this.rpcEngine,
                   serverInterfaceClass, HRegionInterface.VERSION,
                   address, this.conf,

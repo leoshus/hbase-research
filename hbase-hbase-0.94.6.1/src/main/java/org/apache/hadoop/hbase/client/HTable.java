@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Collections;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
@@ -53,6 +54,7 @@ import org.apache.hadoop.hbase.client.HConnectionManager.HConnectable;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
 import org.apache.hadoop.hbase.ipc.CoprocessorProtocol;
 import org.apache.hadoop.hbase.ipc.ExecRPCInvoker;
+import org.apache.hadoop.hbase.ipc.HBaseClient.Call;
 import org.apache.hadoop.hbase.util.Addressing;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
@@ -659,6 +661,9 @@ public class HTable implements HTableInterface {
    */
   @Override
   public Result get(final Get get) throws IOException {
+	//通过RPC调用获取值 HRegionInterface server 使用JDK代理 将get请求的method、参数等序列化成字节流发送到server端  调用具体的服务处理 然后通过HBaseServer.Call.setResponse 将计算的结果返回给client端
+	//Client的HBaseClient.Connection线程对象 run方法调用receiveResponse()方法来接收server返回的结果 并反序列化 通过CallId从HBaseClient中维护的ConcurrentSkipListMap<Integer, Call> calls 中找到对应的Call对象 调用call.setValue(value)
+	//然后之前阻塞的Call对象就可以获取到server返回的计算结果了
     return new ServerCallable<Result>(connection, tableName, get.getRow(), operationTimeout) {
           public Result call() throws IOException {
             return server.get(location.getRegionInfo().getRegionName(), get);

@@ -80,6 +80,7 @@ public abstract class ServerCallable<T> implements Callable<T> {
    */
   public void connect(final boolean reload) throws IOException {
     this.location = connection.getRegionLocation(tableName, row, reload);
+    //建立HRegion RPC连接
     this.server = connection.getHRegionConnection(location.getHostname(),
       location.getPort());
   }
@@ -150,19 +151,21 @@ public abstract class ServerCallable<T> implements Callable<T> {
   public T withRetries()
   throws IOException, RuntimeException {
     Configuration c = getConnection().getConfiguration();
-    final long pause = c.getLong(HConstants.HBASE_CLIENT_PAUSE,
+    final long pause = c.getLong(HConstants.HBASE_CLIENT_PAUSE,//hbase.client.pause  默认值1000 客户端失败重试暂停时间
       HConstants.DEFAULT_HBASE_CLIENT_PAUSE);
-    final int numRetries = c.getInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER,
+    final int numRetries = c.getInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER,//hbase.client.retries.number 默认值10   客户端重试次数
       HConstants.DEFAULT_HBASE_CLIENT_RETRIES_NUMBER);
     List<RetriesExhaustedException.ThrowableWithExtraContext> exceptions =
       new ArrayList<RetriesExhaustedException.ThrowableWithExtraContext>();
     for (int tries = 0; tries < numRetries; tries++) {
       try {
+    	//调用前设置RPC timeout
         beforeCall();
+        //建立RPC连接  取得HRegionInterface 代理对象
         connect(tries != 0);
         return call();
       } catch (Throwable t) {
-        shouldRetry(t);
+        shouldRetry(t);//是否需要重试
         t = translateException(t);
         if (t instanceof SocketTimeoutException ||
             t instanceof ConnectException ||
@@ -183,6 +186,7 @@ public abstract class ServerCallable<T> implements Callable<T> {
           throw new RetriesExhaustedException(tries, exceptions);
         }
       } finally {
+    	//调用结束重置RPC timeout的threadlocal对象值
         afterCall();
       }
       try {

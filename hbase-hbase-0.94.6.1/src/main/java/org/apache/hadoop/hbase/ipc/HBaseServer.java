@@ -349,7 +349,7 @@ public abstract class HBaseServer implements RpcServer {
     	  //客户端请求id 
         out.writeInt(this.id);
         // Write flag.
-        //异常标示
+        //异常标识
         byte flag = (error != null)?
           ResponseFlag.getErrorAndLengthSet(): ResponseFlag.getLengthSetOnly();
         out.writeByte(flag);
@@ -1632,12 +1632,12 @@ public abstract class HBaseServer implements RpcServer {
     this.tcpKeepAlive = conf.getBoolean("ipc.server.tcpkeepalive", true);
 
     this.warnDelayedCalls = conf.getInt(WARN_DELAYED_CALLS,
-                                        DEFAULT_WARN_DELAYED_CALLS);
+                                        DEFAULT_WARN_DELAYED_CALLS);//hbase.ipc.warn.delayedrpc.number 默认值1000 
     this.delayedCalls = new AtomicInteger(0);
 
 
     this.responseQueuesSizeThrottler = new SizeBasedThrottler(
-        conf.getLong(RESPONSE_QUEUES_MAX_SIZE, DEFAULT_RESPONSE_QUEUES_MAX_SIZE));
+        conf.getLong(RESPONSE_QUEUES_MAX_SIZE, DEFAULT_RESPONSE_QUEUES_MAX_SIZE));//ipc.server.response.queue.maxsize 默认值为1G 
 
     // Create the responder here
     //启动一个responder线程  regionServer的写操作由Responder线程负责 即服务端逻辑执行完了 把结果给客户端

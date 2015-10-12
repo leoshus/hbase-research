@@ -1,0 +1,28 @@
+Coprocesssor、CoprocessorEnvironment和CoprocessorHost形成了协处理器类的基础,基于此3个类可以实现更高级的功能.它们支持协处理器的生命周期,管理协处理器的状态,同时提供执行时的环境参数,以保证协处理器正确执行.此外,这些类提供了一个抽象层方便
+用户更简单地构建自己的实现.
+
+协处理器的加载:
+
+1.从配置文件中加载
+可在hbase-site.xml文件中添加配置来添加协处理器
+配置文件顺序非常重要,这个顺序决定了执行顺序。所有协处理器都是以系统优先级进行加载的。
+<property>
+	<name>hbase.coprocessor.region.classes</name> //RegionCoprocessorHost region服务器
+	<value>coprocessor.RegionObserverExample,coprocessor.AnotherCoprocessor</value>
+</property>
+<property>
+	<name>hbase.coprocessor.master.classes</name> //MasterCoprocessorHost master服务器
+	<value>coprocessor.MasterObserverExample</value>
+</property>
+<property>
+	<name>hbase.coprocessor.wal.classes</name> //WALCoprocessorHost  region服务器
+	<value>coprocessor.WALObserverExample,bar.foo.MyWALObserver</value>
+</property>
+
+当一个张表的region被打开时,hbase.coprocessor.region.classes定义的协处理器会被加载. 
+注:用户不能指定具体是哪张表或哪个region加载这个类:默认的协处理器会被每张表和每个region加载。
+
+2.从表描述符中加载
+另一个决定哪些协处理器被加载的选项是表描述符  
+用户只能在与region相关的协处理器上使用这种方法 而不能在master或WAL相关的协处理器上使用
+由于它们是使用表的上下文加载的,所以与配置文件加载的协处理器影响所有的表相比,这种方式加载的协处理器更有针对性.

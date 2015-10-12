@@ -82,7 +82,7 @@ class WritableRpcEngine implements RpcEngine {
       if (logDebug) {
         startTime = System.currentTimeMillis();
       }
-
+      //将调用方法method等参数序列化 发送给server端处理
       HbaseObjectWritable value = (HbaseObjectWritable)
         client.call(new Invocation(method, protocol, args), address,
                     protocol, ticket, rpcTimeout);
